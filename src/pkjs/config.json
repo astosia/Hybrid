@@ -1,0 +1,341 @@
+[
+  {
+    "type": "heading",
+    "defaultValue": "Hybrid"
+  },
+  {
+    "type": "text",
+    "defaultValue": "<p>by astosia</p>"
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Features"
+      },
+      {
+        "type": "toggle",
+        "label": "Digital Time visible",
+        "messageKey": "ShowTime",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "messageKey": "showlocalAMPM",
+        "label": "Show AM or PM for local time",
+        "description": "Applies when 12h time selected in watch settings",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "label": "Add leading zero to 12h time",
+        "messageKey": "AddZero12h",
+        "defaultValue": false
+      },
+      {
+        "type": "toggle",
+        "label": "Remove leading zero from 24h time",
+        "messageKey": "RemoveZero24h",
+        "defaultValue": false
+      },
+      {
+        "type": "toggle",
+        "label": "Date visible",
+        "messageKey": "EnableDate",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "label": "Custom Text visible",
+        "messageKey": "EnableLogo",
+        "defaultValue": true
+      },
+      {
+         "type": "input",
+         "messageKey": "LogoText",
+         "defaultValue": "HYBRID",
+         "label": "Custom Text",
+         "description": "Maximum 6 characters",
+         "attributes": {
+           "placeholder": "HYBRID"
+         }
+      },
+      {
+        "type": "toggle",
+        "label": "Battery Value visible",
+        "messageKey": "EnableBattery",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "label": "Foreground lines visible",
+        "messageKey": "EnableLines",
+        "defaultValue": true
+      },
+      {
+        "type": "toggle",
+        "label": "Seconds hand visible",
+        "messageKey": "EnableSecondsHand",
+        "defaultValue": true
+      },
+      {
+        "type": "slider",
+        "messageKey": "SecondsVisibleTime",
+        "defaultValue": 135,
+        "label": "Seconds hand visibility",
+        "description": "Visibility of seconds hand, in seconds. Timer starts after a tap, shake, or watchface launch. Setting to max value will keep the seconds hand permanently on",
+        "min": 15,
+        "max": 135,
+        "step": 15
+      },
+      {
+        "type": "toggle",
+        "messageKey": "VibeOn",
+        "label": "Vibrate on Bluetooth disconnect during Quiet Time",
+        "description": "If set to off, will still vibrate on disconnect, but not during quiet time",
+        "defaultValue": false
+      }
+    ]
+  },
+  {
+    "type": "submit",
+    "defaultValue": "Save"
+  },
+  {
+    "type": "section",
+    "capabilities": [ "COLOR" ],
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Colours"
+      },
+      {
+        "type": "toggle",
+       "label": "Shadow on",
+       "messageKey": "ShadowOn",
+       "defaultValue": true
+      },
+      {
+        "type": "radiogroup",
+        "messageKey": "ThemeSelect",
+        "defaultValue": "wh",
+        "label": "COLOUR THEME SELECT",
+        "options": [
+          {
+            "label": "White Background",
+            "value": "wh"
+          },
+          {
+            "label": "Black Background",
+            "value": "bl"
+          },
+          {
+              "label": "Blue Background",
+              "value": "bu"
+          },
+          {
+              "label": "Purple Background",
+              "value": "pl"
+          },
+          {
+              "label": "Black & Green",
+              "value": "gr"
+          },
+          {
+            "label": "Custom Colours",
+            "value": "cu"
+          }
+        ]
+      },
+      {
+           "type": "heading",
+           "defaultValue": "Custom Colours"
+         },
+      {
+        "type": "color",
+        "label": "Background Colour",
+        "messageKey": "BackgroundColor1",
+        "defaultValue": "FFFFFF"
+      },
+      {
+        "type": "color",
+        "label": "Foreground Colour",
+        "messageKey": "FGColor",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
+        "label": "Foreground Lines Colour",
+        "messageKey": "LineColor",
+        "defaultValue": "555555"
+      },
+      {
+        "type": "color",
+        "label": "Digital Time, Date, Battery & Text Colour",
+        "messageKey": "TextColor1",
+        "defaultValue": "FFFFFF"
+      },
+      {
+        "type": "color",
+        "label": "Quiet Time and Bluetooth Icon Colour",
+        "messageKey": "BTQTColor",
+        "defaultValue": "FFFFFF"
+      },
+      {
+        "type": "color",
+        "label": "Shadow Colour",
+        "messageKey": "ShadowColor",
+        "defaultValue": "AAAAAA"
+      },
+      {
+        "type": "color",
+        "label": "Tickmark Colour",
+        "messageKey": "TickColor",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
+        "label": "Hour Hand Border Colour",
+        "messageKey": "HoursHandBorderColor",
+        "defaultValue": "00AA55"
+      },
+      {
+        "type": "color",
+        "label": "Hour Hand Fill Colour",
+        "messageKey": "HoursHandColor",
+        "defaultValue": "00AA55"
+      },
+      {
+        "type": "color",
+        "label": "Minute Hand Border Color",
+        "messageKey": "MinutesHandBorderColor",
+        "defaultValue": "FF0000"
+      },
+      {
+        "type": "color",
+        "label": "Minute Hand Fill Color",
+        "messageKey": "MinutesHandColor",
+        "defaultValue": "FF0000"
+      }, 
+      {
+        "type": "color",
+        "label": "Second Hand Colour",
+        "messageKey": "SecondsHandColor",
+        "defaultValue": "00AA55"
+      }
+    ]
+  },
+  {
+    "type": "section",
+    "capabilities": [ "BW" ],
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Colours"
+      },
+      {
+         "type": "radiogroup",
+         "messageKey": "BWThemeSelect",
+         "defaultValue": "wh",
+         "label": "COLOUR THEME SELECT",
+         "options": [
+           {
+             "label": "White Background",
+             "value": "wh"
+           },
+           {
+             "label": "Black Background",
+             "value": "bl"
+           },
+           {
+             "label": "Grey Background",
+             "value": "gy"
+           },
+           {
+             "label": "Custom Colours",
+             "value": "cu"
+           }
+         ]
+       },
+          {
+            "type": "heading",
+            "defaultValue": "Custom Colours"
+          },
+      {
+        "type": "color",
+        "label": "Background Colour",
+        "messageKey": "BackgroundColor1",
+        "defaultValue": "FFFFFF",
+        "allowGray": true
+      },
+      {
+        "type": "color",
+        "label": "Foreground Colour",
+        "messageKey": "FGColor",
+        "defaultValue": "000000",
+        "allowGray": true
+      },
+      {
+        "type": "color",
+        "label": "Foreground Lines Colour",
+        "messageKey": "LineColor",
+        "defaultValue": "555555"
+      },
+      {
+        "type": "color",
+        "label": "Digital Time, Date, Battery & Text Colour",
+        "messageKey": "TextColor1",
+        "defaultValue": "FFFFFF",
+        "allowGray": true
+      },
+      {
+        "type": "color",
+        "label": "Quiet Time and Bluetooth Icon Colour",
+        "messageKey": "BTQTColor",
+        "defaultValue": "FFFFFF",
+        "allowGray": true
+      },
+      {
+        "type": "color",
+        "label": "Tickmark Colour",
+        "messageKey": "TickColor",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
+        "label": "Hour Hand Border Colour",
+        "messageKey": "HoursHandBorderColor",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
+        "label": "Hour Hand Fill Colour",
+        "messageKey": "HoursHandColor",
+        "defaultValue": "FFFFFF"
+      },
+       {
+        "type": "color",
+        "label": "Minute Hand Border Color",
+        "messageKey": "MinutesHandBorderColor",
+        "defaultValue": "000000"
+      },
+      {
+        "type": "color",
+        "label": "Minute Hand Fill Color",
+        "messageKey": "MinutesHandColor",
+        "defaultValue": "FFFFFF"
+      },
+      {
+        "type": "color",
+        "label": "Second Hand Colour",
+        "messageKey": "SecondsHandColor",
+        "defaultValue": "000000"
+      }
+    ]
+  },
+  {
+    "type": "submit",
+    "defaultValue": "Save"
+  }
+]

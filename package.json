@@ -1,0 +1,97 @@
+{
+  "name": "Hybrid",
+  "author": "astosia",
+  "version": "1.0.0",
+  "keywords": [
+    "analog",
+    "analogue",
+    "hybrid",
+    "ksana"
+  ],
+  "private": true,
+  "dependencies": {
+    "@rebble/clay": "^1.0.8",
+    "pebble-fctx": "^1.6.5",
+    "pebble-fctx-compiler": "^1.2.2"
+  },
+  "pebble": {
+    "displayName": "Hybrid",
+    "uuid": "87b52118-6528-4614-9370-910d28eef1b6",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "gabbro",
+      "emery",
+      "chalk",
+      "basalt",
+      "flint",
+      "diorite"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "capabilities": [
+      "configurable"
+    ],
+    "messageKeys": [
+      "EnableSecondsHand",
+      "SecondsVisibleTime",
+      "EnableDate",
+      "EnableBattery",
+      "EnableBatteryLine",
+      "EnableLogo",
+      "LogoText",
+      "BackgroundColor1",
+      "ShadowColor",
+      "TextColor1",
+      "TickColor",
+      "TextColor3",
+      "DateColor",
+      "BTQTColor",
+      "ShadowOn",
+      "HoursHandColor",
+      "HoursHandBorderColor",
+      "MinutesHandColor",
+      "MinutesHandBorderColor",
+      "SecondsHandColor",
+      "BatteryLineColor",
+      "BWBackgroundColor1",
+      "BWBackgroundColor2",
+      "BWTextColor1",
+      "BWSecondsHandColor",
+      "BWTickColor",
+      "BWDateColor",
+      "BWBTQTColor",
+      "BWThemeSelect",
+      "ThemeSelect",
+      "BWShadowOn",
+      "Font",
+      "VibeOn",
+      "FGColor",
+      "BWFGColor",
+      "RemoveZero24h",
+      "AddZero12h",
+      "LineColor",
+      "showlocalAMPM",
+      "ShowTime",
+      "EnableLines"
+    ],
+    "resources": {
+      "media": [
+        {
+          "file": "fonts/dripicons-v2.ttf",
+          "characterRegex": "[z]",
+          "name": "FONT_DRIPICONS_16",
+          "targetPlatforms": null,
+          "type": "font"
+        },
+        {
+          "name": "DIN_CONDENSED_FFONT",
+          "file": "data/DINPro-CondensedMedium.ffont",
+          "targetPlatforms": null,
+          "type": "raw"
+        }
+      ]
+    }
+  }
+}
