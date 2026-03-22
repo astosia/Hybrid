@@ -1,7 +1,7 @@
 {
   "name": "Hybrid",
   "author": "astosia",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "keywords": [
     "analog",
     "analogue",
@@ -25,7 +25,8 @@
       "chalk",
       "basalt",
       "flint",
-      "diorite"
+      "diorite",
+      "aplite"
     ],
     "watchapp": {
       "watchface": true
@@ -44,7 +45,8 @@
       "BackgroundColor1",
       "ShadowColor",
       "TextColor1",
-      "TickColor",
+      "MajorTickColor",
+      "MinorTickColor",
       "TextColor3",
       "DateColor",
       "BTQTColor",
@@ -74,7 +76,10 @@
       "LineColor",
       "showlocalAMPM",
       "ShowTime",
-      "EnableLines"
+      "EnableLines",
+      "EnableMinorTick",
+      "EnableMajorTick",
+      "ForegroundShape"
     ],
     "resources": {
       "media": [
@@ -82,16 +87,49 @@
           "file": "fonts/dripicons-v2.ttf",
           "characterRegex": "[z]",
           "name": "FONT_DRIPICONS_16",
-          "targetPlatforms": null,
+          "targetPlatforms": [
+              "gabbro",
+              "emery"
+          ],
+          "type": "font"
+        },
+        {
+          "file": "fonts/dripicons-v2.ttf",
+          "characterRegex": "[z]",
+          "name": "FONT_DRIPICONS_12",
+          "targetPlatforms": [
+              "aplite", 
+              "basalt",
+              "chalk",
+              "flint",
+              "diorite"
+            ],
           "type": "font"
         },
         {
           "name": "DIN_CONDENSED_FFONT",
           "file": "data/DINPro-CondensedMedium.ffont",
-          "targetPlatforms": null,
+          "targetPlatforms": [
+              "gabbro",
+              "emery",
+              "chalk",
+              "basalt"
+            ],
           "type": "raw"
+        },
+        {
+          "file": "fonts/DINPro-CondensedMedium.ttf",
+          "name": "FONT_DIN_CON_APLITE_38",
+          "characterRegex": "[0-9:.A-Z]",
+          "targetPlatforms": [
+              "aplite", 
+              "flint",
+              "diorite"
+            ],
+          "type": "font"
         }
       ]
     }
   }
 }
+

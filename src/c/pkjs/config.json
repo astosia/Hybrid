@@ -1,7 +1,7 @@
 [
   {
     "type": "heading",
-    "defaultValue": "Hybrid"
+    "defaultValue": "Hybrid Too"
   },
   {
     "type": "text",
@@ -16,14 +16,6 @@
       },
       {
         "type": "toggle",
-        "label": "Watchface Style",
-        "messageKey": "ForegroundShape",
-        "description": "Off = Rectangular, On = Round",
-        "capabilities" :[ "RECT" ],
-        "defaultValue": false
-      },
-      {
-        "type": "toggle",
         "label": "Digital Time visible",
         "messageKey": "ShowTime",
         "defaultValue": true
@@ -31,7 +23,7 @@
       {
         "type": "toggle",
         "messageKey": "showlocalAMPM",
-        "label": "Show AM or PM",
+        "label": "Show AM or PM for local time",
         "description": "Applies when 12h time selected in watch settings",
         "defaultValue": true
       },
@@ -83,18 +75,6 @@
       },
       {
         "type": "toggle",
-        "label": "Major Ticks Visible",
-        "messageKey": "EnableMajorTick",
-        "defaultValue": true
-      },
-      {
-        "type": "toggle",
-        "label": "Minor Ticks Visible",
-        "messageKey": "EnableMinorTick",
-        "defaultValue": true
-      },
-      {
-        "type": "toggle",
         "label": "Seconds hand visible",
         "messageKey": "EnableSecondsHand",
         "defaultValue": true
@@ -134,8 +114,6 @@
         "type": "toggle",
        "label": "Shadow on",
        "messageKey": "ShadowOn",
-       "capabilities": [ "COLOR" ],
-       "description": "Only shows if Round shape is selected",
        "defaultValue": true
       },
       {
@@ -178,13 +156,13 @@
         "type": "color",
         "label": "Background Colour",
         "messageKey": "BackgroundColor1",
-        "defaultValue": "000000"
+        "defaultValue": "FFFFFF"
       },
       {
         "type": "color",
         "label": "Foreground Colour",
         "messageKey": "FGColor",
-        "defaultValue": "FFFFFF"
+        "defaultValue": "000000"
       },
       {
         "type": "color",
@@ -196,32 +174,25 @@
         "type": "color",
         "label": "Digital Time, Date, Battery & Text Colour",
         "messageKey": "TextColor1",
-        "defaultValue": "000000"
+        "defaultValue": "FFFFFF"
       },
       {
         "type": "color",
         "label": "Quiet Time and Bluetooth Icon Colour",
         "messageKey": "BTQTColor",
-        "defaultValue": "000000"
+        "defaultValue": "FFFFFF"
       },
       {
         "type": "color",
         "label": "Shadow Colour",
         "messageKey": "ShadowColor",
-        "capabilities": [ "ROUND" ],
         "defaultValue": "AAAAAA"
       },
       {
         "type": "color",
-        "label": "Major Tickmark Colour",
-        "messageKey": "MajorTickColor",
-        "defaultValue": "FFFFFF"
-      },
-      {
-        "type": "color",
-        "label": "Minor Tickmark Colour",
-        "messageKey": "MinorTickColor",
-        "defaultValue": "FFFFFF"
+        "label": "Tickmark Colour",
+        "messageKey": "TickColor",
+        "defaultValue": "000000"
       },
       {
         "type": "color",
