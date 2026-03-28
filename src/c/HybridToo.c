@@ -3,9 +3,11 @@
 #include "utils/weekday.h"
 #include "utils/month.h"
 #include "utils/MathUtils.h"
+#ifndef PBL_BW
 #include <pebble-fctx/fctx.h>
 #include <pebble-fctx/fpath.h>
 #include <pebble-fctx/ffont.h>
+#endif
 
 #define SECONDS_TICK_INTERVAL_MS 1000
 //#define CORNER_RADIUS 24
@@ -15,11 +17,10 @@ static Window *s_window;
 static Layer *s_canvas_layer;
 static Layer *s_bg_layer;
 static Layer *s_canvas_second_hand;
-// static Layer *s_canvas_bt_icon;
-// static Layer *s_canvas_qt_icon;
 static Layer *s_fg_layer;
-static GRect bounds;
-static GRect bounds_seconds;
+
+ static GRect bounds;
+// static GRect bounds_seconds;
 
 // Fonts
 static GFont FontBTQTIcons;
@@ -34,15 +35,20 @@ static FFont *FCTX_Font;
 
 // Time and date
 static struct tm prv_tick_time;
+static int s_battery_level;
+static int s_connected;
+static char s_time_text[12], s_ampm_text[6], s_date_text[20], s_batt_text[8], s_logo_text[16];
 static int s_month;
 static int s_day;
 static int s_weekday;
 static int s_hours;
 static int minutes;
 static int hours;
-//static int seconds;
+static int seconds;
 static ClaySettings settings;
 static bool showSeconds;
+static AppTimer *s_timeout_timer;
+// static bool ignore_next_tap = false;
 
 // Per-platform rendering config
 typedef struct {
@@ -110,7 +116,7 @@ static const UIConfig config = {
   .yOffsetPercent = 11,
   .second_hand_a = 94,  //not really used
   .second_hand_b = 6, //offset of second hand end
-  .hour_hand_a = 28, //was 16
+  .hour_hand_a = 22, //was 28
   .min_hand_a = 9,
   .min_hand_b = 28, //used
   .fg_radius = 74,
@@ -145,7 +151,6 @@ static const UIConfig config = {
   .tick_inset_outer_round = 2,
   .minor_tick_inset_round = 15
 };
-
 #elif defined(PBL_PLATFORM_GABBRO)
 static const UIConfig config = {
   .BTxOffset = 10 + 41,
@@ -218,7 +223,7 @@ static const UIConfig config = {
   .yOffsetPercent = 9,
   .second_hand_a = 0,
   .second_hand_b = 6,
-  .hour_hand_a = 20,
+  .hour_hand_a = 16,
   .min_hand_a = 4,  //was6
   .min_hand_b = 18,  //was 18
   .fg_radius = 54,
@@ -255,45 +260,358 @@ static const UIConfig config = {
 };
 #endif
 
-static bool ignore_next_tap = false;
-static AppTimer *s_timeout_timer;
 
-// Forward declarations
-static void prv_save_settings(void);
-static void prv_default_settings(void);
-static void prv_load_settings(void);
-static void prv_inbox_received_handler(DictionaryIterator *iter, void *context);
-static void tick_handler(struct tm *tick_time, TimeUnits units_changed);
-static void bg_update_proc(Layer *layer, GContext *ctx);
-static void fg_update_proc(Layer *layer, GContext *ctx);
-static void layer_update_proc_seconds_hand(Layer *layer, GContext *ctx);
-static void hour_min_hands_canvas_update_proc(Layer *layer, GContext *ctx);
-//static void layer_update_proc_qt(Layer *layer, GContext *ctx);
-//static void layer_update_proc_bt(Layer *layer, GContext *ctx);
-static void draw_fancy_hand_hour(GContext *ctx, int angle, int length, GColor fill_color, GColor border_color);
-static void draw_fancy_hand_min(GContext *ctx, int angle, int length, int back_length, GColor fill_color, GColor border_color);
-static void draw_seconds_line_hand(GContext *ctx, int angle, int length, int back_length, GColor color);
-static void draw_major_tick(GContext *ctx, int angle, int length, GColor fill_color, GColor border_color);
-static void bluetooth_vibe_icon(bool connected);
-//static void quiet_time_icon(void);
-static void timeout_handler(void *context);
-static void accel_tap_handler(AccelAxisType axis, int32_t direction);
-static void prv_window_load(Window *window);
-static void prv_window_unload(Window *window);
-static void prv_init(void);
-static void prv_deinit(void);
+
+// ---------------------------------------------------------------------------
+// Geometry calcs for rectangular screens
+// ---------------------------------------------------------------------------
 #ifndef PBL_ROUND
-static GPoint angle_to_rect_edge(GPoint center, int angle_deg, GRect r);
-static GPoint angle_to_rounded_rect_edge(GPoint center, int angle_deg, int half_w, int half_h, int r);
-static GPoint point_from_edge(GPoint origin, int angle, GRect r, int inset);
-//static void draw_fctx_rounded_rect(FContext *fctx, GRect rect, int corner_radius, GColor fill_color);
+static GPoint angle_to_rect_edge(GPoint center, int angle_deg, GRect r) {
+  int32_t angle = DEG_TO_TRIGANGLE(angle_deg);
+  int32_t dx = cos_lookup(angle);
+  int32_t dy = sin_lookup(angle);
+  int32_t t = INT32_MAX;
+  if (dx > 0) { int32_t v = ((r.origin.x + r.size.w - 1 - center.x) * TRIG_MAX_RATIO) / dx; if (v < t) t = v; }
+  else if (dx < 0) { int32_t v = ((r.origin.x - center.x) * TRIG_MAX_RATIO) / dx; if (v < t) t = v; }
+  if (dy > 0) { int32_t v = ((r.origin.y + r.size.h - 1 - center.y) * TRIG_MAX_RATIO) / dy; if (v < t) t = v; }
+  else if (dy < 0) { int32_t v = ((r.origin.y - center.y) * TRIG_MAX_RATIO) / dy; if (v < t) t = v; }
+  return GPoint(center.x + (dx * t / TRIG_MAX_RATIO),
+                center.y + (dy * t / TRIG_MAX_RATIO));
+}
+
+static GPoint angle_to_rounded_rect_edge(GPoint center, int angle_deg, int half_w, int half_h, int r) {
+  int32_t angle = DEG_TO_TRIGANGLE(angle_deg);
+  int32_t dx = cos_lookup(angle);
+  int32_t dy = sin_lookup(angle);
+
+  int32_t dx16 = (dx + 32) >> 6;
+  int32_t dy16 = (dy + 32) >> 6;
+  int32_t ratio = TRIG_MAX_RATIO >> 6;
+
+  int32_t t = INT32_MAX;
+  if (dx16 > 0) { int32_t v = ( half_w - 1) * ratio / dx16; if (v < t) t = v; }
+  else if (dx16 < 0) { int32_t v = (-half_w    ) * ratio / dx16; if (v < t) t = v; }
+  if (dy16 > 0) { int32_t v = ( half_h - 1) * ratio / dy16; if (v < t) t = v; }
+  else if (dy16 < 0) { int32_t v = (-half_h    ) * ratio / dy16; if (v < t) t = v; }
+
+  // px = dx16 * t / ratio, with rounding
+  int32_t px = (dx16 * t + (ratio / 2)) / ratio;
+  int32_t py = (dy16 * t + (ratio / 2)) / ratio;
+
+  // Corner projection
+  int32_t inner_w = half_w - r;
+  int32_t inner_h = half_h - r;
+  if ((px > inner_w || px < -inner_w) && (py > inner_h || py < -inner_h)) {
+    int32_t cx = (px > 0) ? inner_w : -inner_w;
+    int32_t cy = (py > 0) ? inner_h : -inner_h;
+    int32_t ex = px - cx;
+    int32_t ey = py - cy;
+
+    // Scale ex/ey up by 16 for sub-pixel precision in isqrt, stays in 32-bit.
+    int32_t ex16s = ex << 4;
+    int32_t ey16s = ey << 4;
+    uint32_t len16 = isqrt((uint32_t)(ex16s * ex16s + ey16s * ey16s));
+
+    if (len16 > 0) {
+      // ex * r * 16 / len16 = ex * r / len, with rounding
+      px = cx + (ex * r * 16 + (int32_t)(len16 / 2)) / (int32_t)len16;
+      py = cy + (ey * r * 16 + (int32_t)(len16 / 2)) / (int32_t)len16;
+    }
+  }
+
+  return GPoint(center.x + px, center.y + py);
+}
+
+static GPoint point_from_edge(GPoint origin, int angle_deg, GRect r, int inset) {
+    GPoint edge = angle_to_rect_edge(origin, angle_deg, r);
+    int32_t angle = DEG_TO_TRIGANGLE(angle_deg);
+    return GPoint(edge.x - (int)((cos_lookup(angle) * inset) / TRIG_MAX_RATIO), 
+                  edge.y - (int)((sin_lookup(angle) * inset) / TRIG_MAX_RATIO));
+}
+
+
 #endif
-//#if PBL_COLOR && PBL_ROUND
-static void draw_center_shadow(GContext *ctx, GColor shadow_color);
-//#endif
-//#if PBL_ROUND
-static void draw_center(GContext *ctx, GColor seconds_color, GColor fg_color);
-//#endif
+
+// ---------------------------------------------------------------------------
+// Efficiency: Subscribe & Cache 
+// ---------------------------------------------------------------------------
+static void update_cached_strings() {
+
+    minutes   = prv_tick_time.tm_min;
+    hours     = prv_tick_time.tm_hour % 12;
+    s_hours   = prv_tick_time.tm_hour;
+    s_day     = prv_tick_time.tm_mday;
+    s_weekday = prv_tick_time.tm_wday;
+    s_month   = prv_tick_time.tm_mon;
+
+    // 1. Time string
+    int hourdraw = prv_tick_time.tm_hour;
+    if (!clock_is_24h_style()) {
+        hourdraw = (hourdraw == 0 || hourdraw == 12) ? 12 : hourdraw % 12;
+        snprintf(s_time_text, sizeof(s_time_text), settings.AddZero12h ? "%02d:%02d" : "%d:%02d", hourdraw, prv_tick_time.tm_min);
+        strftime(s_ampm_text, sizeof(s_ampm_text), "%p", &prv_tick_time);
+    } else {
+        snprintf(s_time_text, sizeof(s_time_text), settings.RemoveZero24h ? "%d:%02d" : "%02d:%02d", hourdraw, prv_tick_time.tm_min);
+        s_ampm_text[0] = '\0';
+    }
+    // 2. Date string
+    if (settings.EnableDate) {
+        char weekdaydraw[10];
+        fetchwday(prv_tick_time.tm_wday, i18n_get_system_locale(), weekdaydraw);
+        snprintf(s_date_text, sizeof(s_date_text), "%s %d", weekdaydraw, prv_tick_time.tm_mday);
+    }
+    // 3. Logo text
+    snprintf(s_logo_text, sizeof(s_logo_text), "%s", settings.LogoText);
+}
+
+
+
+static void bluetooth_callback(bool connected) {
+    bool was_connected = s_connected;
+    s_connected = connected;
+    if (was_connected && !connected && (!quiet_time_is_active() || settings.VibeOn)) {
+        vibes_double_pulse();
+        //ignore_next_tap = true;
+    }
+    layer_mark_dirty(s_fg_layer);
+}
+
+static void battery_callback(BatteryChargeState state) {
+    s_battery_level = state.charge_percent;
+    snprintf(s_batt_text, sizeof(s_batt_text), "%d%%", s_battery_level);
+    layer_mark_dirty(s_fg_layer);
+}
+
+// ---------------------------------------------------------------------------
+// Hand drawing
+// ---------------------------------------------------------------------------
+
+static void draw_fancy_hand_hour(GContext *ctx, int angle, int length, GColor fill_color, GColor border_color) {
+  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
+  //GPoint p1;
+  GPoint p2;
+
+  #ifdef PBL_ROUND
+    p2 = polar_to_point_offset(origin, angle, length);
+  #else
+    if(settings.ForegroundShape){
+      p2 = polar_to_point_offset(origin, angle, length);
+    }
+    else{
+      GRect r = GRect(0, 0, bounds.size.w, bounds.size.h);
+      p2 = point_from_edge(origin, angle, r, length);
+    }
+  #endif
+
+  graphics_context_set_antialiased(ctx, true);
+
+  #if PBL_COLOR && PBL_ROUND
+  graphics_context_set_stroke_color(ctx, settings.ShadowColor);
+  graphics_context_set_stroke_width(ctx, 9);
+  graphics_draw_line(ctx, GPoint(origin.x + 2, origin.y + 2), GPoint(p2.x + 2, p2.y + 2));
+  #elif PBL_COLOR
+      if(settings.ForegroundShape){
+        graphics_context_set_stroke_color(ctx, settings.ShadowColor);
+        graphics_context_set_stroke_width(ctx, 9);
+        graphics_draw_line(ctx, GPoint(origin.x + 2, origin.y + 2), GPoint(p2.x + 2, p2.y + 2));
+      }
+  #endif
+
+  graphics_context_set_stroke_color(ctx, border_color);
+  graphics_context_set_stroke_width(ctx, config.hourhandwidth);
+  graphics_draw_line(ctx, origin, p2);
+  graphics_context_set_stroke_color(ctx, fill_color);
+  graphics_context_set_stroke_width(ctx, config.hourhandwidth - 6);
+  graphics_draw_line(ctx, origin, p2);
+}
+
+static void draw_fancy_hand_min(GContext *ctx, int angle, int length, int back_length, GColor fill_color, GColor border_color) {
+  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
+  GPoint p1;
+  GPoint p2;
+
+  #ifdef PBL_ROUND
+   p1 = polar_to_point_offset(origin, angle, back_length);
+   p2 = polar_to_point_offset(origin, angle, length);
+  #else
+    if(settings.ForegroundShape){
+      p1 = polar_to_point_offset(origin, angle, back_length);
+      p2 = polar_to_point_offset(origin, angle, length);
+    }
+    else{
+      GRect r = GRect(0, 0, bounds.size.w, bounds.size.h);
+      p1 = angle_to_rounded_rect_edge(origin, angle, bounds.size.w/2 - config.min_hand_b, bounds.size.h/2 - config.min_hand_b, config.corner_radius_foreground);
+      p2 = point_from_edge(origin, angle, r, length);
+    }
+  #endif
+
+  graphics_context_set_antialiased(ctx, true);
+
+  #if PBL_COLOR && PBL_ROUND
+  GPoint shadow_offset = PBL_IF_BW_ELSE(GPoint(1, 1), GPoint(2, 2));
+  graphics_context_set_stroke_color(ctx, settings.ShadowColor);
+  graphics_context_set_stroke_width(ctx, config.hourhandwidth-2);
+  graphics_draw_line(ctx, GPoint(p1.x + shadow_offset.x, p1.y + shadow_offset.y),
+                          GPoint(p2.x + shadow_offset.x, p2.y + shadow_offset.y));
+  #elif PBL_COLOR
+      if(settings.ForegroundShape){
+        GPoint shadow_offset = PBL_IF_BW_ELSE(GPoint(1, 1), GPoint(2, 2));
+        graphics_context_set_stroke_color(ctx, settings.ShadowColor);
+        graphics_context_set_stroke_width(ctx, config.hourhandwidth-2);
+        graphics_draw_line(ctx, GPoint(p1.x + shadow_offset.x, p1.y + shadow_offset.y),
+                                GPoint(p2.x + shadow_offset.x, p2.y + shadow_offset.y));
+      }
+  #endif
+
+  graphics_context_set_stroke_color(ctx, border_color);
+  graphics_context_set_stroke_width(ctx, config.hourhandwidth-2);
+  graphics_draw_line(ctx, p1, p2);
+  graphics_context_set_stroke_color(ctx, fill_color);
+  graphics_context_set_stroke_width(ctx, config.hourhandwidth-6);
+  graphics_draw_line(ctx, p1, p2);
+}
+
+static void draw_seconds_line_hand(GContext *ctx, int angle, int length, int back_length, GColor color) {
+  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
+  GPoint p1;
+  GPoint p2;
+
+  #ifdef PBL_ROUND
+   p1 = polar_to_point_offset(origin, angle, back_length);
+   p2 = polar_to_point_offset(origin, angle, length);
+  #else
+    if(settings.ForegroundShape){
+      p1 = polar_to_point_offset(origin, angle, back_length);
+      p2 = polar_to_point_offset(origin, angle, length);
+    }
+    else{
+      GRect r = GRect(0, 0, bounds.size.w, bounds.size.h);
+      p1 = angle_to_rounded_rect_edge(origin, angle, bounds.size.w/2 - config.second_hand_b, bounds.size.h/2 - config.second_hand_b, config.corner_radius_secondshand);
+      p2 = point_from_edge(origin, angle, r, back_length);
+    }
+  #endif
+
+  graphics_context_set_antialiased(ctx, true);
+
+  #if PBL_COLOR && PBL_ROUND
+  graphics_context_set_stroke_color(ctx, settings.ShadowColor);
+  graphics_context_set_stroke_width(ctx, 2);
+  graphics_draw_line(ctx, GPoint(p1.x + 2, p1.y + 2), GPoint(p2.x + 2, p2.y + 2));
+  #elif PBL_COLOR
+      if(settings.ForegroundShape){
+        graphics_context_set_stroke_color(ctx, settings.ShadowColor);
+        graphics_context_set_stroke_width(ctx, 2);
+        graphics_draw_line(ctx, GPoint(p1.x + 2, p1.y + 2), GPoint(p2.x + 2, p2.y + 2));
+      }
+  #endif
+
+  graphics_context_set_stroke_color(ctx, color);
+  graphics_context_set_stroke_width(ctx, 2);
+  graphics_draw_line(ctx, p1, p2);
+}
+
+static void draw_btqt_icons(GContext *ctx, GRect bounds) {
+    if (!s_connected) {
+        int x = bounds.size.w / 2 - config.fg_radius + config.BTxOffset;
+        int y = bounds.size.h / 2 + config.BTIconYOffset;
+        graphics_context_set_text_color(ctx, settings.BTQTColor);
+        graphics_draw_text(ctx, "z", FontBTQTIcons, GRect(x, y, config.BTQTRectWidth, 20), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+    }
+    if (quiet_time_is_active()) {
+        int x = bounds.size.w / 2 - config.fg_radius + config.QTxOffset;
+        int y = bounds.size.h / 2 + config.QTIconYOffset;
+        graphics_context_set_text_color(ctx, settings.BTQTColor);
+        graphics_draw_text(ctx, "y", FontBTQTIcons, GRect(x, y, config.BTQTRectWidth, 20), GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tick drawing
+// ---------------------------------------------------------------------------
+
+static void draw_major_tick(GContext *ctx, int angle, int length, GColor fill_color, GColor border_color) {
+  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
+  GPoint p1;
+  GPoint p2;
+
+  #ifdef PBL_ROUND
+   p1 = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.tick_inset_inner);
+   p2 = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.tick_inset_outer);
+  #else
+    if(settings.ForegroundShape){
+      p1 = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.tick_inset_inner_round);
+      p2 = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.tick_inset_outer_round);
+    }
+    else{
+      GRect r = GRect(0, 0, bounds.size.w, bounds.size.h);
+      GPoint edge = angle_to_rect_edge(origin, angle, r);
+      int32_t dx = cos_lookup(DEG_TO_TRIGANGLE(angle));
+      int32_t dy = sin_lookup(DEG_TO_TRIGANGLE(angle));
+      p2 = GPoint(edge.x - (int)((dx * config.tick_inset_outer) / TRIG_MAX_ANGLE),
+                        edge.y - (int)((dy * config.tick_inset_outer) / TRIG_MAX_ANGLE));
+      p1 = angle_to_rounded_rect_edge(origin, angle, config.majortickrect_w, config.majortickrect_h, config.corner_radius_majortickrect);
+    }
+  #endif
+
+  graphics_context_set_antialiased(ctx, true);
+  graphics_context_set_stroke_color(ctx, border_color);
+  graphics_context_set_stroke_width(ctx, 3);
+  graphics_draw_line(ctx, p1, p2);
+}
+
+#ifdef PBL_ROUND
+static void draw_minor_tick(GContext *ctx, GPoint center, GColor border_color) {
+  graphics_context_set_antialiased(ctx, true);
+  graphics_context_set_fill_color(ctx, border_color);
+  graphics_fill_circle(ctx, center, 1);
+}
+#else
+static void draw_minor_tick(GContext *ctx, int angle, GColor fill_color, GColor border_color) {
+  if (settings.ForegroundShape) {
+    GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
+    GPoint center = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.minor_tick_inset_round);
+    graphics_context_set_antialiased(ctx, true);
+    graphics_context_set_fill_color(ctx, border_color);
+    graphics_fill_circle(ctx, center, 1);
+  } else {
+    GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
+    GRect r = GRect(0, 0, bounds.size.w, bounds.size.h);
+    GPoint edge = angle_to_rect_edge(origin, angle, r);
+    int32_t dx = cos_lookup(DEG_TO_TRIGANGLE(angle));
+    int32_t dy = sin_lookup(DEG_TO_TRIGANGLE(angle));
+    GPoint p2 = GPoint(edge.x - (int)((dx * config.tick_inset_outer) / TRIG_MAX_ANGLE),
+                       edge.y - (int)((dy * config.tick_inset_outer) / TRIG_MAX_ANGLE));
+    GPoint p1 = angle_to_rounded_rect_edge(origin, angle, config.minortickrect_w, config.minortickrect_h, config.corner_radius_minortickrect);
+    graphics_context_set_antialiased(ctx, true);
+    graphics_context_set_stroke_color(ctx, border_color);
+    graphics_context_set_stroke_width(ctx, 1);
+    graphics_draw_line(ctx, p1, p2);
+  }
+}
+#endif
+
+// ---------------------------------------------------------------------------
+// Centre drawing helpers (round platforms only)
+// ---------------------------------------------------------------------------
+ 
+#ifndef PBL_BW
+static void draw_center_shadow(GContext *ctx, GColor shadow_color) {
+  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
+  graphics_context_set_antialiased(ctx, true);
+  graphics_context_set_fill_color(ctx, shadow_color);
+  graphics_fill_circle(ctx, GPoint(origin.x + 2, origin.y + 2), config.fg_radius);
+}
+#endif
+
+static void draw_center(GContext *ctx, GColor seconds_color, GColor fg_color) {
+  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
+  graphics_context_set_antialiased(ctx, true);
+  graphics_context_set_fill_color(ctx, fg_color);
+  graphics_fill_circle(ctx, origin, config.fg_radius);
+  graphics_context_set_stroke_color(ctx, seconds_color);
+  graphics_context_set_stroke_width(ctx, 2);
+  graphics_draw_circle(ctx, origin, config.fg_radius);
+}
 
 // ---------------------------------------------------------------------------
 // Settings
@@ -350,64 +668,12 @@ static void prv_load_settings(void) {
 // Event handlers
 // ---------------------------------------------------------------------------
 
-// static void quiet_time_icon(void) {
-//   layer_set_hidden(s_canvas_qt_icon, !quiet_time_is_active());
-// }
-
-static void timeout_handler(void *context) {
-  showSeconds = false;
-  tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
-  layer_mark_dirty(s_canvas_second_hand);
-  s_timeout_timer = NULL;
-}
-
-static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
-  if (ignore_next_tap) {
-    ignore_next_tap = false;
-    return;
-  }
-  if (settings.EnableSecondsHand && settings.SecondsVisibleTime < 135) {
-    if (s_timeout_timer) {
-      app_timer_cancel(s_timeout_timer);
-      s_timeout_timer = NULL;
-    }
-    if (!showSeconds) {
-      tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
-    }
-    showSeconds = true;
-    s_timeout_timer = app_timer_register(SECONDS_TICK_INTERVAL_MS * settings.SecondsVisibleTime, timeout_handler, NULL);
-    layer_mark_dirty(s_canvas_second_hand);
-  }
-}
-
-static void bluetooth_vibe_icon(bool connected) {
-  //layer_set_hidden(s_canvas_bt_icon, connected);
-
-  if (!connected && (!quiet_time_is_active() || settings.VibeOn)) {
-    if (settings.SecondsVisibleTime > 0 && settings.SecondsVisibleTime < 135) {
-      accel_tap_service_unsubscribe();
-      showSeconds = false;
-    }
-
-    #ifdef PBL_PLATFORM_DIORITE
-    vibes_short_pulse();
-    ignore_next_tap = true;
-    #else
-    vibes_double_pulse();
-    ignore_next_tap = false;
-    #endif
-
-    if (settings.SecondsVisibleTime > 0 && settings.SecondsVisibleTime < 135) {
-      accel_tap_service_subscribe(accel_tap_handler);
-    }
-  }
-}
-
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  // time_t temp = time(NULL);
-  // prv_tick_time = localtime(&temp);
-
   prv_tick_time = *tick_time;
+
+    update_cached_strings();
+    layer_mark_dirty(s_canvas_layer);
+    layer_mark_dirty(s_fg_layer);
 
   if (units_changed & MINUTE_UNIT) {
     minutes = tick_time->tm_min;
@@ -423,11 +689,33 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   }
 
   if (showSeconds && (units_changed & SECOND_UNIT)) {
-    //int seconds = tick_time->tm_sec;
     layer_mark_dirty(s_canvas_second_hand);
   }
 
   layer_set_hidden(s_canvas_second_hand, !(showSeconds && settings.EnableSecondsHand));
+}
+
+static void timeout_handler(void *context) {
+  showSeconds = false;
+  tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
+  layer_mark_dirty(s_canvas_second_hand);
+  s_timeout_timer = NULL;
+}
+
+static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
+ 
+  if (settings.EnableSecondsHand && settings.SecondsVisibleTime < 135) {
+    if (s_timeout_timer) {
+      app_timer_cancel(s_timeout_timer);
+      s_timeout_timer = NULL;
+    }
+    if (!showSeconds) {
+      tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
+    }
+    showSeconds = true;
+    s_timeout_timer = app_timer_register(SECONDS_TICK_INTERVAL_MS * settings.SecondsVisibleTime, timeout_handler, NULL);
+    layer_mark_dirty(s_canvas_second_hand);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -476,22 +764,26 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
 
   if (addzero12_t) {
     settings.AddZero12h = addzero12_t->value->int32 != 0;
-    layer_mark_dirty(s_fg_layer);
+    //layer_mark_dirty(s_fg_layer);
+    settings_changed = true;
   }
 
   if (remzero24_t) {
     settings.RemoveZero24h = remzero24_t->value->int32 != 0;
-    layer_mark_dirty(s_fg_layer);
+    //layer_mark_dirty(s_fg_layer);
+    settings_changed = true;
   }
 
   if (localampm_t) {
     settings.showlocalAMPM = localampm_t->value->int32 == 1;
-    layer_mark_dirty(s_fg_layer);
+    //layer_mark_dirty(s_fg_layer);
+    settings_changed = true;
   }
 
   if (vibe_t) {
     settings.VibeOn = vibe_t->value->int32 != 0;
   //  layer_mark_dirty(s_canvas_bt_icon);
+    settings_changed = true;
   }
 
   if (enable_seconds_t) {
@@ -500,28 +792,33 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
 
   if (enable_date_t) {
     settings.EnableDate = enable_date_t->value->int32 == 1;
-    layer_mark_dirty(s_canvas_layer);
-    layer_mark_dirty(s_fg_layer);
+    // layer_mark_dirty(s_canvas_layer);
+    // layer_mark_dirty(s_fg_layer);
+    settings_changed = true;
   }
 
   if (enable_lines_t) {
     settings.EnableLines = enable_lines_t->value->int32 == 1;
-    layer_mark_dirty(s_fg_layer);
+    // layer_mark_dirty(s_fg_layer);
+    settings_changed = true;
   }
 
   if (enable_minor_t) {
     settings.EnableMinorTick = enable_minor_t->value->int32 == 1;
-    layer_mark_dirty(s_bg_layer);
+    // layer_mark_dirty(s_bg_layer);
+    settings_changed = true;
   }
   
   if (enable_major_t) {
     settings.EnableMajorTick = enable_major_t->value->int32 == 1;
-    layer_mark_dirty(s_bg_layer);
+    // layer_mark_dirty(s_bg_layer);
+    settings_changed = true;
   }
 
   if (enable_time_t) {
     settings.ShowTime = enable_time_t->value->int32 == 1;
-    layer_mark_dirty(s_fg_layer);
+    // layer_mark_dirty(s_fg_layer);
+    settings_changed = true;
   }
 
   if (enable_logo_t) {
@@ -533,19 +830,21 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
     } else {
       snprintf(settings.LogoText, sizeof(settings.LogoText), "%s", "");
     }
-    layer_mark_dirty(s_fg_layer);
+    // layer_mark_dirty(s_fg_layer);
+    settings_changed = true;
   }
 
   if (fg_shape_t) {
     settings.ForegroundShape = fg_shape_t->value->int32 == 1;
-    layer_mark_dirty(s_fg_layer);
-    layer_mark_dirty(s_canvas_layer);
+    // layer_mark_dirty(s_fg_layer);
+    // layer_mark_dirty(s_canvas_layer);
     settings_changed = true;
   }
 
   if (enable_battery_t) {
     settings.EnableBattery = enable_battery_t->value->int32 == 1;
-    layer_mark_dirty(s_fg_layer);
+    // layer_mark_dirty(s_fg_layer);
+    settings_changed = true;
   }
 
   if (enable_secondsvisible_t) {
@@ -575,7 +874,7 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
       tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
       accel_tap_service_unsubscribe();
     }
-    layer_mark_dirty(s_canvas_second_hand);
+    //layer_mark_dirty(s_canvas_second_hand);
   }
 
   if (bwthemeselect_t) {
@@ -744,354 +1043,52 @@ static void prv_inbox_received_handler(DictionaryIterator *iter, void *context) 
     }
   }
 
-  if (settings_changed) {
+  if (settings_changed || theme_settings_changed) {
     layer_mark_dirty(s_bg_layer);
     layer_mark_dirty(s_canvas_layer);
     layer_mark_dirty(s_canvas_second_hand);
-    layer_mark_dirty(s_fg_layer);
-  }
-
-  if (theme_settings_changed) {
-    layer_mark_dirty(s_bg_layer);
-    layer_mark_dirty(s_canvas_layer);
-    layer_mark_dirty(s_canvas_second_hand);
-    // layer_mark_dirty(s_canvas_qt_icon);
-    // layer_mark_dirty(s_canvas_bt_icon);
     layer_mark_dirty(s_fg_layer);
   }
 
   prv_save_settings();
 }
 
-// ---------------------------------------------------------------------------
-// Geometry helpers (non-round platforms only)
-// ---------------------------------------------------------------------------
-
-#ifndef PBL_ROUND
-// Returns the point where a ray from center at angle_deg hits the edge of GRect r.
-static GPoint angle_to_rect_edge(GPoint center, int angle_deg, GRect r) {
-  int32_t dx = cos_lookup(DEG_TO_TRIGANGLE(angle_deg));
-  int32_t dy = sin_lookup(DEG_TO_TRIGANGLE(angle_deg));
-  int32_t t = INT32_MAX;
-
-  if (dx > 0) { int32_t v = ((r.origin.x + r.size.w - 1 - center.x) * TRIG_MAX_ANGLE) / dx; if (v < t) t = v; }
-  else if (dx < 0) { int32_t v = ((r.origin.x - center.x) * TRIG_MAX_ANGLE) / dx; if (v < t) t = v; }
-  if (dy > 0) { int32_t v = ((r.origin.y + r.size.h - 1 - center.y) * TRIG_MAX_ANGLE) / dy; if (v < t) t = v; }
-  else if (dy < 0) { int32_t v = ((r.origin.y - center.y) * TRIG_MAX_ANGLE) / dy; if (v < t) t = v; }
-
-  return GPoint(center.x + (int)(dx * t / TRIG_MAX_ANGLE),
-                center.y + (int)(dy * t / TRIG_MAX_ANGLE));
-}
-
-// Returns the point where a ray from center at angle_deg hits a rounded rectangle
-// defined by half-dimensions half_w x half_h and corner radius r, all centred on center.
-static GPoint angle_to_rounded_rect_edge(GPoint center, int angle_deg, int half_w, int half_h, int r) {
-  int32_t dx = cos_lookup(DEG_TO_TRIGANGLE(angle_deg));
-  int32_t dy = sin_lookup(DEG_TO_TRIGANGLE(angle_deg));
-  float fdx = (float)dx / TRIG_MAX_ANGLE;
-  float fdy = (float)dy / TRIG_MAX_ANGLE;
-
-  // Find where ray hits the bounding rectangle
-  float best_t = 1e9f;
-  if (fdx >  0.0001f) { float t = ( half_w - 1) / fdx; if (t < best_t) best_t = t; }
-  if (fdx < -0.0001f) { float t = (-half_w)     / fdx; if (t < best_t) best_t = t; }
-  if (fdy >  0.0001f) { float t = ( half_h - 1) / fdy; if (t < best_t) best_t = t; }
-  if (fdy < -0.0001f) { float t = (-half_h)     / fdy; if (t < best_t) best_t = t; }
-
-  float px = fdx * best_t;
-  float py = fdy * best_t;
-
-  // If the hit point falls in a corner region, project it onto the corner arc
-  if ((px > (half_w - r) || px < -(half_w - r)) &&
-      (py > (half_h - r) || py < -(half_h - r))) {
-    float cx = (px > 0) ? (half_w - r) : -(half_w - r);
-    float cy = (py > 0) ? (half_h - r) : -(half_h - r);
-    float ex = px - cx;
-    float ey = py - cy;
-    float len = (float)isqrt((uint32_t)((ex * ex + ey * ey) * 65536.0f)) / 256.0f;
-    if (len > 0.0001f) {
-      px = cx + ex / len * r;
-      py = cy + ey / len * r;
-    }
-  }
-
-  return GPoint(center.x + (int)(px + 0.5f),
-                center.y + (int)(py + 0.5f));
-}
-
-// Returns a point along the ray from origin at angle, inset pixels from the screen edge.
-static GPoint point_from_edge(GPoint origin, int angle, GRect r, int inset) {
-  GPoint edge = angle_to_rect_edge(origin, angle, r);
-  int32_t dx = cos_lookup(DEG_TO_TRIGANGLE(angle));
-  int32_t dy = sin_lookup(DEG_TO_TRIGANGLE(angle));
-  return GPoint(edge.x - (int)((dx * inset) / TRIG_MAX_ANGLE),
-                edge.y - (int)((dy * inset) / TRIG_MAX_ANGLE));
-}
-
-#endif // !PBL_ROUND
-
-// ---------------------------------------------------------------------------
-// Centre drawing helpers (round platforms only)
-// ---------------------------------------------------------------------------
-
-//#if PBL_COLOR && PBL_ROUND
-static void draw_center_shadow(GContext *ctx, GColor shadow_color) {
-  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
-  graphics_context_set_antialiased(ctx, true);
-  graphics_context_set_fill_color(ctx, shadow_color);
-  graphics_fill_circle(ctx, GPoint(origin.x + 2, origin.y + 2), config.fg_radius);
-}
-//#endif
-
-//#if PBL_ROUND
-static void draw_center(GContext *ctx, GColor seconds_color, GColor fg_color) {
-  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
-  graphics_context_set_antialiased(ctx, true);
-  graphics_context_set_fill_color(ctx, fg_color);
-  graphics_fill_circle(ctx, origin, config.fg_radius);
-  graphics_context_set_stroke_color(ctx, seconds_color);
-  graphics_context_set_stroke_width(ctx, 2);
-  graphics_draw_circle(ctx, origin, config.fg_radius);
-}
-//#endif
-
-// ---------------------------------------------------------------------------
-// Tick drawing
-// ---------------------------------------------------------------------------
-
-static void draw_major_tick(GContext *ctx, int angle, int length, GColor fill_color, GColor border_color) {
-  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
-  GPoint p1;
-  GPoint p2;
-
-  #ifdef PBL_ROUND
-   p1 = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.tick_inset_inner);
-   p2 = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.tick_inset_outer);
-  #else
-    if(settings.ForegroundShape){
-      p1 = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.tick_inset_inner_round);
-      p2 = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.tick_inset_outer_round);
-    }
-    else{
-      GRect r = GRect(0, 0, bounds.size.w, bounds.size.h);
-      GPoint edge = angle_to_rect_edge(origin, angle, r);
-      int32_t dx = cos_lookup(DEG_TO_TRIGANGLE(angle));
-      int32_t dy = sin_lookup(DEG_TO_TRIGANGLE(angle));
-      p2 = GPoint(edge.x - (int)((dx * config.tick_inset_outer) / TRIG_MAX_ANGLE),
-                        edge.y - (int)((dy * config.tick_inset_outer) / TRIG_MAX_ANGLE));
-      p1 = angle_to_rounded_rect_edge(origin, angle, config.majortickrect_w, config.majortickrect_h, config.corner_radius_majortickrect);
-    }
-  #endif
-
-  graphics_context_set_antialiased(ctx, true);
-  graphics_context_set_stroke_color(ctx, border_color);
-  graphics_context_set_stroke_width(ctx, 3);
-  graphics_draw_line(ctx, p1, p2);
-}
-
-#ifdef PBL_ROUND
-static void draw_minor_tick(GContext *ctx, GPoint center, GColor border_color) {
-  graphics_context_set_antialiased(ctx, true);
-  graphics_context_set_fill_color(ctx, border_color);
-  graphics_fill_circle(ctx, center, 1);
-}
-#else
-static void draw_minor_tick(GContext *ctx, int angle, GColor fill_color, GColor border_color) {
-  if (settings.ForegroundShape) {
-    GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
-    GPoint center = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.minor_tick_inset_round);
-    graphics_context_set_antialiased(ctx, true);
-    graphics_context_set_fill_color(ctx, border_color);
-    graphics_fill_circle(ctx, center, 1);
-  } else {
-    GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
-    GRect r = GRect(0, 0, bounds.size.w, bounds.size.h);
-    GPoint edge = angle_to_rect_edge(origin, angle, r);
-    int32_t dx = cos_lookup(DEG_TO_TRIGANGLE(angle));
-    int32_t dy = sin_lookup(DEG_TO_TRIGANGLE(angle));
-    GPoint p2 = GPoint(edge.x - (int)((dx * config.tick_inset_outer) / TRIG_MAX_ANGLE),
-                       edge.y - (int)((dy * config.tick_inset_outer) / TRIG_MAX_ANGLE));
-    GPoint p1 = angle_to_rounded_rect_edge(origin, angle, config.minortickrect_w, config.minortickrect_h, config.corner_radius_minortickrect);
-    graphics_context_set_antialiased(ctx, true);
-    graphics_context_set_stroke_color(ctx, border_color);
-    graphics_context_set_stroke_width(ctx, 1);
-    graphics_draw_line(ctx, p1, p2);
-  }
-}
-#endif
-
-// ---------------------------------------------------------------------------
-// Hand drawing
-// ---------------------------------------------------------------------------
-
-static void draw_fancy_hand_hour(GContext *ctx, int angle, int length, GColor fill_color, GColor border_color) {
-  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
-  //GPoint p1;
-  GPoint p2;
-
-  #ifdef PBL_ROUND
-    //p1 = polar_to_point_offset(origin, angle, 18);
-    p2 = polar_to_point_offset(origin, angle, length);
-  #else
-    if(settings.ForegroundShape){
-      //p1 = polar_to_point_offset(origin, angle, 18);
-      p2 = polar_to_point_offset(origin, angle, length);
-    }
-    else{
-      GRect r = GRect(0, 0, bounds.size.w, bounds.size.h);
-      //GPoint p1 = angle_to_rounded_rect_edge(origin, angle, 72, 86, config.corner_radius_handsrect);
-      //p1 = angle_to_rounded_rect_edge(origin, angle, config.hourhandrect_w, config.hourhandrect_h, config.corner_radius_handsrect);
-      p2 = point_from_edge(origin, angle, r, length);
-    }
-  #endif
-
-  graphics_context_set_antialiased(ctx, true);
-
-  #if PBL_COLOR && PBL_ROUND
-  graphics_context_set_stroke_color(ctx, settings.ShadowColor);
-  graphics_context_set_stroke_width(ctx, 9);
-  graphics_draw_line(ctx, GPoint(origin.x + 2, origin.y + 2), GPoint(p2.x + 2, p2.y + 2));
-  #elif PBL_COLOR
-      if(settings.ForegroundShape){
-        graphics_context_set_stroke_color(ctx, settings.ShadowColor);
-        graphics_context_set_stroke_width(ctx, 9);
-        graphics_draw_line(ctx, GPoint(origin.x + 2, origin.y + 2), GPoint(p2.x + 2, p2.y + 2));
-      }
-  #endif
-
-  graphics_context_set_stroke_color(ctx, border_color);
-  graphics_context_set_stroke_width(ctx, config.hourhandwidth);
-  graphics_draw_line(ctx, origin, p2);
-  //graphics_draw_line(ctx, p1, p2);
-  graphics_context_set_stroke_color(ctx, fill_color);
-  graphics_context_set_stroke_width(ctx, config.hourhandwidth - 6);
-  //graphics_draw_line(ctx, p1, p2);
-  graphics_draw_line(ctx, origin, p2);
-}
-
-static void draw_fancy_hand_min(GContext *ctx, int angle, int length, int back_length, GColor fill_color, GColor border_color) {
-  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
-  GPoint p1;
-  GPoint p2;
-
-  #ifdef PBL_ROUND
-   p1 = polar_to_point_offset(origin, angle, back_length);
-   p2 = polar_to_point_offset(origin, angle, length);
-  #else
-    if(settings.ForegroundShape){
-      p1 = polar_to_point_offset(origin, angle, back_length);
-      p2 = polar_to_point_offset(origin, angle, length);
-    }
-    else{
-      GRect r = GRect(0, 0, bounds.size.w, bounds.size.h);
-      //GPoint p1 = angle_to_rounded_rect_edge(origin, angle, config.minhandrect_w, config.minhandrect_h, config.corner_radius_handsrect);
-      p1 = angle_to_rounded_rect_edge(origin, angle, bounds.size.w/2 - config.min_hand_b, bounds.size.h/2 - config.min_hand_b, config.corner_radius_foreground);
-      p2 = point_from_edge(origin, angle, r, length);
-    }
-  #endif
-
-  graphics_context_set_antialiased(ctx, true);
-
-  #if PBL_COLOR && PBL_ROUND
-  GPoint shadow_offset = PBL_IF_BW_ELSE(GPoint(1, 1), GPoint(2, 2));
-  graphics_context_set_stroke_color(ctx, settings.ShadowColor);
-  graphics_context_set_stroke_width(ctx, config.hourhandwidth-2);
-  graphics_draw_line(ctx, GPoint(p1.x + shadow_offset.x, p1.y + shadow_offset.y),
-                          GPoint(p2.x + shadow_offset.x, p2.y + shadow_offset.y));
-  #elif PBL_COLOR
-      if(settings.ForegroundShape){
-        GPoint shadow_offset = PBL_IF_BW_ELSE(GPoint(1, 1), GPoint(2, 2));
-        graphics_context_set_stroke_color(ctx, settings.ShadowColor);
-        graphics_context_set_stroke_width(ctx, config.hourhandwidth-2);
-        graphics_draw_line(ctx, GPoint(p1.x + shadow_offset.x, p1.y + shadow_offset.y),
-                                GPoint(p2.x + shadow_offset.x, p2.y + shadow_offset.y));
-      }
-  #endif
-
-  graphics_context_set_stroke_color(ctx, border_color);
-  graphics_context_set_stroke_width(ctx, config.hourhandwidth-2);
-  graphics_draw_line(ctx, p1, p2);
-  graphics_context_set_stroke_color(ctx, fill_color);
-  graphics_context_set_stroke_width(ctx, config.hourhandwidth-6);
-  graphics_draw_line(ctx, p1, p2);
-}
-
-static void draw_seconds_line_hand(GContext *ctx, int angle, int length, int back_length, GColor color) {
-  GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
-  GPoint p1;
-  GPoint p2;
-
-  #ifdef PBL_ROUND
-   p1 = polar_to_point_offset(origin, angle, back_length);
-   p2 = polar_to_point_offset(origin, angle, length);
-  #else
-    if(settings.ForegroundShape){
-      p1 = polar_to_point_offset(origin, angle, back_length);
-      p2 = polar_to_point_offset(origin, angle, length);
-    }
-    else{
-      GRect r = GRect(0, 0, bounds.size.w, bounds.size.h);
-      p1 = angle_to_rounded_rect_edge(origin, angle, bounds.size.w/2 - config.second_hand_b, bounds.size.h/2 - config.second_hand_b, config.corner_radius_secondshand);
-      p2 = point_from_edge(origin, angle, r, back_length);
-    }
-  #endif
-
-  graphics_context_set_antialiased(ctx, true);
-
-  #if PBL_COLOR && PBL_ROUND
-  graphics_context_set_stroke_color(ctx, settings.ShadowColor);
-  graphics_context_set_stroke_width(ctx, 2);
-  graphics_draw_line(ctx, GPoint(p1.x + 2, p1.y + 2), GPoint(p2.x + 2, p2.y + 2));
-  #elif PBL_COLOR
-      if(settings.ForegroundShape){
-        graphics_context_set_stroke_color(ctx, settings.ShadowColor);
-        graphics_context_set_stroke_width(ctx, 2);
-        graphics_draw_line(ctx, GPoint(p1.x + 2, p1.y + 2), GPoint(p2.x + 2, p2.y + 2));
-      }
-  #endif
-
-  graphics_context_set_stroke_color(ctx, color);
-  graphics_context_set_stroke_width(ctx, 2);
-  graphics_draw_line(ctx, p1, p2);
-}
 
 // ---------------------------------------------------------------------------
 // Layer update procedures
 // ---------------------------------------------------------------------------
 
-static void layer_update_proc_seconds_hand(Layer *layer, GContext *ctx) {
-  if (!showSeconds) return;
-
+static void bg_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
 
-  time_t now = time(NULL);
-  struct tm *t = localtime(&now);
-  int seconds = t->tm_sec;
+  graphics_context_set_fill_color(ctx, settings.BackgroundColor1);
+  graphics_fill_rect(ctx, GRect(0, 0, bounds.size.w, bounds.size.h), 0, GCornersAll);
 
-  int seconds_angle = ((double)seconds / 60 * 360) - 90;
-  #ifdef PBL_ROUND
-    draw_seconds_line_hand(ctx, seconds_angle,
-                          bounds.size.w / 2 - config.second_hand_a,
-                          bounds.size.w / 2 - config.second_hand_b,
-                          settings.SecondsHandColor);
-  #else
-    if(settings.ForegroundShape){
-      draw_seconds_line_hand(ctx, seconds_angle,
-                          bounds.size.w / 2 - config.second_hand_a_round,
-                          bounds.size.w / 2 - config.second_hand_b_round,
-                          settings.SecondsHandColor);
+  // Minor ticks — every degree except on major-tick angles (multiples of 30)
+  if (settings.EnableMinorTick) {
+    for (int i = 0; i < 60; i++) {
+      if (i % 5 == 0) continue;
+      int angle = i * 6;
+      #ifdef PBL_ROUND
+        GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
+        GPoint center = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.minor_tick_inset);
+        draw_minor_tick(ctx, center, settings.MinorTickColor);
+      #else
+        draw_minor_tick(ctx, angle, settings.BackgroundColor1, settings.MinorTickColor);
+      #endif
     }
-    else{
-      draw_seconds_line_hand(ctx, seconds_angle,
-                          bounds.size.w / 2 - config.second_hand_a,
-                          bounds.size.w / 2 - config.second_hand_b,
-                          settings.SecondsHandColor);
+  }
+    // Major ticks — 12 hour positions
+    if(settings.EnableMajorTick){
+      for (int i = 0; i < 12; i++) {
+        int angle = i * 30 - 90;
+        draw_major_tick(ctx, angle, 16, settings.BackgroundColor1, settings.MajorTickColor);
+      }
     }
-  #endif
-}
+  }
 
-static void hour_min_hands_canvas_update_proc(Layer *layer, GContext *ctx) {
-  //GRect bounds = layer_get_bounds(layer);
+  static void hour_min_hands_canvas_update_proc(Layer *layer, GContext *ctx) {
+  GRect bounds = layer_get_bounds(layer);
 
   #if PBL_COLOR && PBL_ROUND
     draw_center_shadow(ctx, settings.ShadowColor);
@@ -1129,22 +1126,42 @@ static void hour_min_hands_canvas_update_proc(Layer *layer, GContext *ctx) {
     }
   #endif
 }
+  
+  static void layer_update_proc_seconds_hand(Layer *layer, GContext *ctx) {
+  if (!showSeconds) return;
+
+  GRect bounds = layer_get_bounds(layer);
+
+  time_t now = time(NULL);
+  struct tm *t = localtime(&now);
+  int seconds = t->tm_sec;
+
+  int seconds_angle = ((double)seconds / 60 * 360) - 90;
+  #ifdef PBL_ROUND
+    draw_seconds_line_hand(ctx, seconds_angle,
+                          bounds.size.w / 2 - config.second_hand_a,
+                          bounds.size.w / 2 - config.second_hand_b,
+                          settings.SecondsHandColor);
+  #else
+    if(settings.ForegroundShape){
+      draw_seconds_line_hand(ctx, seconds_angle,
+                          bounds.size.w / 2 - config.second_hand_a_round,
+                          bounds.size.w / 2 - config.second_hand_b_round,
+                          settings.SecondsHandColor);
+    }
+    else{
+      draw_seconds_line_hand(ctx, seconds_angle,
+                          bounds.size.w / 2 - config.second_hand_a,
+                          bounds.size.w / 2 - config.second_hand_b,
+                          settings.SecondsHandColor);
+    }
+  #endif
+}
+
 
 #ifndef PBL_BW
 static void fg_update_proc(Layer *layer, GContext *ctx) {
-
-  // #ifdef PBL_ROUND
-  //   draw_center(ctx, settings.SecondsHandColor, settings.FGColor);
-  // #else
-  //  GRect fg_rect = GRect(config.foregroundrect_x, config.foregroundrect_y, config.foregroundrect_w, config.foregroundrect_h);
-  //   graphics_context_set_antialiased(ctx,true);
-  //   graphics_context_set_fill_color(ctx, settings.FGColor);
-  //   graphics_fill_rect(ctx, fg_rect, config.corner_radius_foreground, GCornersAll);
-  //   graphics_context_set_stroke_color(ctx, settings.SecondsHandColor);
-  //   graphics_context_set_stroke_width(ctx, 2);
-  //   graphics_draw_round_rect(ctx, fg_rect, config.corner_radius_foreground);
-  // #endif
-
+ GRect bounds = layer_get_bounds(layer);
   #ifndef PBL_ROUND
   if (settings.ForegroundShape) {
       // Round foreground (Hybrid style)
@@ -1345,33 +1362,35 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
                             GPoint(bounds.size.w * 0.58, cy - (config.fg_radius - 10)));
   }
 
-  if (!connection_service_peek_pebble_app_connection()) {  //turn back to false after testing!
-  // draw BT icon
-  int xPosition = bounds.size.w / 2 - config.fg_radius + config.BTxOffset;
-  int yPosition = bounds.size.h / 2 + config.BTIconYOffset;
-  GRect BTIconRect = GRect(xPosition, yPosition, config.BTQTRectWidth, 20);
-  graphics_context_set_text_color(ctx, settings.BTQTColor);
-  graphics_context_set_antialiased(ctx, true);
-  graphics_draw_text(ctx, "z", FontBTQTIcons, BTIconRect, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  // if (!connection_service_peek_pebble_app_connection()) {  //turn back to false after testing!
+  // // draw BT icon
+  // int xPosition = bounds.size.w / 2 - config.fg_radius + config.BTxOffset;
+  // int yPosition = bounds.size.h / 2 + config.BTIconYOffset;
+  // GRect BTIconRect = GRect(xPosition, yPosition, config.BTQTRectWidth, 20);
+  // graphics_context_set_text_color(ctx, settings.BTQTColor);
+  // graphics_context_set_antialiased(ctx, true);
+  // graphics_draw_text(ctx, "z", FontBTQTIcons, BTIconRect, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
 
-  }
+  // }
 
-  if (quiet_time_is_active()) {  //turn back to true after testing
-  // draw QT icon  
-  //quiet_time_icon();
-  int xPosition = bounds.size.w / 2 - config.fg_radius + config.QTxOffset;
-  int yPosition = bounds.size.h / 2 + config.QTIconYOffset;
-  GRect QTIconRect = GRect(xPosition, yPosition, config.BTQTRectWidth, 20);
-  graphics_context_set_text_color(ctx, settings.BTQTColor);
-  graphics_context_set_antialiased(ctx, true);
-  graphics_draw_text(ctx, "\U0000E061", FontBTQTIcons, QTIconRect, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
-  }
+  // if (quiet_time_is_active()) {  //turn back to true after testing
+  // // draw QT icon  
+  // //quiet_time_icon();
+  // int xPosition = bounds.size.w / 2 - config.fg_radius + config.QTxOffset;
+  // int yPosition = bounds.size.h / 2 + config.QTIconYOffset;
+  // GRect QTIconRect = GRect(xPosition, yPosition, config.BTQTRectWidth, 20);
+  // graphics_context_set_text_color(ctx, settings.BTQTColor);
+  // graphics_context_set_antialiased(ctx, true);
+  // graphics_draw_text(ctx, "\U0000E061", FontBTQTIcons, QTIconRect, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  // }
+
+  draw_btqt_icons(ctx, bounds);
 
 }
 #else
 static void fg_update_proc(Layer *layer, GContext *ctx) {
 
-  //GRect bounds = layer_get_bounds(layer);
+  GRect bounds = layer_get_bounds(layer);
   if (settings.ForegroundShape) {
     draw_center(ctx, settings.SecondsHandColor, settings.FGColor);
   }
@@ -1383,8 +1402,6 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
     graphics_context_set_stroke_width(ctx, 2);
     graphics_draw_round_rect(ctx, fg_rect, config.corner_radius_foreground);
   }
-
-
 
   int cx = bounds.size.w / 2;
   int cy = bounds.size.h / 2;
@@ -1539,79 +1556,63 @@ static void fg_update_proc(Layer *layer, GContext *ctx) {
                             GPoint(bounds.size.w * 0.58, cy - (config.fg_radius - 10)));
   }
 
-  if (!connection_service_peek_pebble_app_connection()) { //turn back to false after testing
-  // draw BT icon
-  int xPosition = bounds.size.w / 2 - config.fg_radius + config.BTxOffset;
-  int yPosition = bounds.size.h / 2 + config.BTIconYOffset;
-  GRect BTIconRect = GRect(xPosition, yPosition, config.BTQTRectWidth, 20);
-  graphics_context_set_text_color(ctx, settings.BTQTColor);
-  graphics_context_set_antialiased(ctx, true);
-  graphics_draw_text(ctx, "z", FontBTQTIcons, BTIconRect, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  // if (!connection_service_peek_pebble_app_connection()) { //turn back to false after testing
+  // // draw BT icon
+  // int xPosition = bounds.size.w / 2 - config.fg_radius + config.BTxOffset;
+  // int yPosition = bounds.size.h / 2 + config.BTIconYOffset;
+  // GRect BTIconRect = GRect(xPosition, yPosition, config.BTQTRectWidth, 20);
+  // graphics_context_set_text_color(ctx, settings.BTQTColor);
+  // graphics_context_set_antialiased(ctx, true);
+  // graphics_draw_text(ctx, "z", FontBTQTIcons, BTIconRect, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
 
-  }
+  // }
 
-  if (quiet_time_is_active()) {  //turn back to true after testing
-  // draw QT icon  
-  //quiet_time_icon();
-  int xPosition = bounds.size.w / 2 - config.fg_radius + config.QTxOffset;
-  int yPosition = bounds.size.h / 2 + config.QTIconYOffset;
-  GRect QTIconRect = GRect(xPosition, yPosition, config.BTQTRectWidth, 20);
-  graphics_context_set_text_color(ctx, settings.BTQTColor);
-  graphics_context_set_antialiased(ctx, true);
-  graphics_draw_text(ctx, "\U0000E061", FontBTQTIcons, QTIconRect, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
-  }
+  // if (quiet_time_is_active()) {  //turn back to true after testing
+  // // draw QT icon  
+  // //quiet_time_icon();
+  // int xPosition = bounds.size.w / 2 - config.fg_radius + config.QTxOffset;
+  // int yPosition = bounds.size.h / 2 + config.QTIconYOffset;
+  // GRect QTIconRect = GRect(xPosition, yPosition, config.BTQTRectWidth, 20);
+  // graphics_context_set_text_color(ctx, settings.BTQTColor);
+  // graphics_context_set_antialiased(ctx, true);
+  // graphics_draw_text(ctx, "\U0000E061", FontBTQTIcons, QTIconRect, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  // }
+
+  draw_btqt_icons(ctx, bounds);
 
 }
 #endif
 
-static void bg_update_proc(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_bounds(layer);
 
-  graphics_context_set_fill_color(ctx, settings.BackgroundColor1);
-  graphics_fill_rect(ctx, GRect(0, 0, bounds.size.w, bounds.size.h), 0, GCornersAll);
-
-  // Minor ticks — every degree except on major-tick angles (multiples of 30)
-  if (settings.EnableMinorTick) {
-    for (int i = 0; i < 60; i++) {
-      if (i % 5 == 0) continue;
-      int angle = i * 6;
-      #ifdef PBL_ROUND
-        GPoint origin = GPoint(bounds.size.w / 2, bounds.size.h / 2);
-        GPoint center = polar_to_point_offset(origin, angle, bounds.size.h / 2 - config.minor_tick_inset);
-        draw_minor_tick(ctx, center, settings.MinorTickColor);
-      #else
-        draw_minor_tick(ctx, angle, settings.BackgroundColor1, settings.MinorTickColor);
-      #endif
-    }
-  }
-    // Major ticks — 12 hour positions
-    if(settings.EnableMajorTick){
-      for (int i = 0; i < 12; i++) {
-        int angle = i * 30 - 90;
-        draw_major_tick(ctx, angle, 16, settings.BackgroundColor1, settings.MajorTickColor);
-      }
-    }
-  }
 
 // ---------------------------------------------------------------------------
 // Window lifecycle
 // ---------------------------------------------------------------------------
 
 static void prv_window_load(Window *window) {
-  time_t temp = time(NULL);
-  prv_tick_time = *localtime(&temp);
-  s_day = prv_tick_time.tm_mday;
-  s_weekday = prv_tick_time.tm_wday;
-  minutes = prv_tick_time.tm_min;
-  hours = prv_tick_time.tm_hour % 12;
-  s_hours = prv_tick_time.tm_hour;
-  s_month = prv_tick_time.tm_mon;
+  // time_t temp = time(NULL);
+  // prv_tick_time = *localtime(&temp);
+  // s_day = prv_tick_time.tm_mday;
+  // s_weekday = prv_tick_time.tm_wday;
+  // minutes = prv_tick_time.tm_min;
+  // hours = prv_tick_time.tm_hour % 12;
+  // s_hours = prv_tick_time.tm_hour;
+  // s_month = prv_tick_time.tm_mon;
   //seconds = prv_tick_time.tm_sec;
+    Layer *window_layer = window_get_root_layer(s_window);
+    bounds = layer_get_bounds(window_layer);
 
-  Layer *window_layer = window_get_root_layer(window);
-  bounds = layer_get_bounds(window_layer);
-  APP_LOG(APP_LOG_LEVEL_INFO, "Settings size: %d bytes", (int)sizeof(ClaySettings)); 
-  bounds_seconds = bounds;
+  // Initial State Fetch
+    time_t now = time(NULL);
+    prv_tick_time = *localtime(&now);
+    s_connected = connection_service_peek_pebble_app_connection();
+    s_battery_level = battery_state_service_peek().charge_percent;
+    update_cached_strings();
+
+  // Layer *window_layer = window_get_root_layer(window);
+  // bounds = layer_get_bounds(window_layer);
+  //APP_LOG(APP_LOG_LEVEL_INFO, "Settings size: %d bytes", (int)sizeof(ClaySettings)); 
+  //bounds_seconds = bounds;
 
   #ifdef PBL_BW
    aplite_font = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DIN_CON_APLITE_38));
@@ -1627,9 +1628,14 @@ static void prv_window_load(Window *window) {
   FontBTQTIcons = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_DRIPICONS_12));
   #endif
 
-  connection_service_subscribe((ConnectionHandlers){
-    .pebble_app_connection_handler = bluetooth_vibe_icon
-  });
+  // connection_service_subscribe((ConnectionHandlers){
+  //   .pebble_app_connection_handler = bluetooth_vibe_icon
+  // });
+
+  // Subscriptions
+    tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
+    battery_state_service_subscribe(battery_callback);
+    connection_service_subscribe((ConnectionHandlers){ .pebble_app_connection_handler = bluetooth_callback });
 
   if (settings.EnableSecondsHand) {
     tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
@@ -1643,34 +1649,19 @@ static void prv_window_load(Window *window) {
   showSeconds = settings.EnableSecondsHand;
 
   s_bg_layer = layer_create(bounds);
-  s_canvas_second_hand = layer_create(bounds_seconds);
-  // s_canvas_qt_icon = layer_create(bounds);
-  // quiet_time_icon();
-  // s_canvas_bt_icon = layer_create(bounds);
-  // layer_set_hidden(s_canvas_bt_icon, connection_service_peek_pebble_app_connection());
+  s_canvas_second_hand = layer_create(bounds);
   s_canvas_layer = layer_create(bounds);
-  //s_fg_layer = layer_create(bounds);
-  //#ifndef PBL_PLATFORM_APLITE
-    s_fg_layer = layer_create(bounds);
-  // #else
-  //   GRect fg_bounds = GRect(config.foregroundrect_x, config.foregroundrect_y,
-  //                           config.foregroundrect_w, config.foregroundrect_h);
-  //   s_fg_layer = layer_create(fg_bounds);
-  // #endif
+  s_fg_layer = layer_create(bounds);
 
   layer_add_child(window_layer, s_bg_layer);
   layer_add_child(window_layer, s_canvas_layer);
   layer_add_child(window_layer, s_canvas_second_hand);
   layer_add_child(window_layer, s_fg_layer);
-  // layer_add_child(window_layer, s_canvas_bt_icon);
-  // layer_add_child(window_layer, s_canvas_qt_icon);
-
-  bluetooth_vibe_icon(connection_service_peek_pebble_app_connection());
+  
+  //bluetooth_vibe_icon(connection_service_peek_pebble_app_connection());
 
   layer_set_update_proc(s_bg_layer, bg_update_proc);
   layer_set_update_proc(s_canvas_second_hand, layer_update_proc_seconds_hand);
-  // layer_set_update_proc(s_canvas_bt_icon, layer_update_proc_bt);
-  // layer_set_update_proc(s_canvas_qt_icon, layer_update_proc_qt);
   layer_set_update_proc(s_canvas_layer, hour_min_hands_canvas_update_proc);
   layer_set_update_proc(s_fg_layer, fg_update_proc);
 }
@@ -1704,7 +1695,7 @@ static void prv_window_unload(Window *window) {
 
 static void prv_init(void) {
   prv_load_settings();
-  app_message_open(2048, 2048);
+  app_message_open(256, 256);
   app_message_register_inbox_received(prv_inbox_received_handler);
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers){

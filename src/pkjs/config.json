@@ -16,10 +16,21 @@
       },
       {
         "type": "toggle",
+        "messageKey": "HealthOff",
+        "label": "Switch off Steps",
+        "defaultValue": false,
+        "capabilities": [
+          "HEALTH"
+        ]
+      },
+      {
+        "type": "toggle",
         "label": "Watchface Style",
         "messageKey": "ForegroundShape",
         "description": "Off = Rectangular, On = Round",
-        "capabilities" :[ "RECT" ],
+        "capabilities": [
+          "RECT"
+        ],
         "defaultValue": false
       },
       {
@@ -60,14 +71,14 @@
         "defaultValue": true
       },
       {
-         "type": "input",
-         "messageKey": "LogoText",
-         "defaultValue": "HYBRID",
-         "label": "Custom Text",
-         "description": "Maximum 6 characters",
-         "attributes": {
-           "placeholder": "HYBRID"
-         }
+        "type": "input",
+        "messageKey": "LogoText",
+        "defaultValue": "HYBRID",
+        "label": "Custom Text",
+        "description": "Maximum 6 characters",
+        "attributes": {
+          "placeholder": "HYBRID"
+        }
       },
       {
         "type": "toggle",
@@ -124,7 +135,9 @@
   },
   {
     "type": "section",
-    "capabilities": [ "COLOR" ],
+    "capabilities": [
+      "COLOR"
+    ],
     "items": [
       {
         "type": "heading",
@@ -132,11 +145,13 @@
       },
       {
         "type": "toggle",
-       "label": "Shadow on",
-       "messageKey": "ShadowOn",
-       "capabilities": [ "COLOR" ],
-       "description": "Only shows if Round shape is selected",
-       "defaultValue": true
+        "label": "Shadow on",
+        "messageKey": "ShadowOn",
+        "capabilities": [
+          "COLOR"
+        ],
+        "description": "Only shows if Round shape is selected",
+        "defaultValue": true
       },
       {
         "type": "radiogroup",
@@ -153,16 +168,16 @@
             "value": "bl"
           },
           {
-              "label": "Blue Background",
-              "value": "bu"
+            "label": "Blue Background",
+            "value": "bu"
           },
           {
-              "label": "Purple Background",
-              "value": "pl"
+            "label": "Purple Background",
+            "value": "pl"
           },
           {
-              "label": "Black & Green",
-              "value": "gr"
+            "label": "Black & Green",
+            "value": "gr"
           },
           {
             "label": "Custom Colours",
@@ -171,9 +186,9 @@
         ]
       },
       {
-           "type": "heading",
-           "defaultValue": "Custom Colours"
-         },
+        "type": "heading",
+        "defaultValue": "Custom Colours"
+      },
       {
         "type": "color",
         "label": "Background Colour",
@@ -208,7 +223,9 @@
         "type": "color",
         "label": "Shadow Colour",
         "messageKey": "ShadowColor",
-        "capabilities": [ "ROUND" ],
+        "capabilities": [
+          "ROUND"
+        ],
         "defaultValue": "AAAAAA"
       },
       {
@@ -246,7 +263,7 @@
         "label": "Minute Hand Fill Color",
         "messageKey": "MinutesHandColor",
         "defaultValue": "FF0000"
-      }, 
+      },
       {
         "type": "color",
         "label": "Second Hand Colour",
@@ -257,40 +274,42 @@
   },
   {
     "type": "section",
-    "capabilities": [ "BW" ],
+    "capabilities": [
+      "BW"
+    ],
     "items": [
       {
         "type": "heading",
         "defaultValue": "Colours"
       },
       {
-         "type": "radiogroup",
-         "messageKey": "BWThemeSelect",
-         "defaultValue": "wh",
-         "label": "COLOUR THEME SELECT",
-         "options": [
-           {
-             "label": "White Background",
-             "value": "wh"
-           },
-           {
-             "label": "Black Background",
-             "value": "bl"
-           },
-           {
-             "label": "Grey Background",
-             "value": "gy"
-           },
-           {
-             "label": "Custom Colours",
-             "value": "cu"
-           }
-         ]
-       },
+        "type": "radiogroup",
+        "messageKey": "BWThemeSelect",
+        "defaultValue": "wh",
+        "label": "COLOUR THEME SELECT",
+        "options": [
           {
-            "type": "heading",
-            "defaultValue": "Custom Colours"
+            "label": "White Background",
+            "value": "wh"
           },
+          {
+            "label": "Black Background",
+            "value": "bl"
+          },
+          {
+            "label": "Grey Background",
+            "value": "gy"
+          },
+          {
+            "label": "Custom Colours",
+            "value": "cu"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "defaultValue": "Custom Colours"
+      },
       {
         "type": "color",
         "label": "Background Colour",
@@ -343,7 +362,7 @@
         "messageKey": "HoursHandColor",
         "defaultValue": "FFFFFF"
       },
-       {
+      {
         "type": "color",
         "label": "Minute Hand Border Color",
         "messageKey": "MinutesHandBorderColor",
@@ -360,6 +379,134 @@
         "label": "Second Hand Colour",
         "messageKey": "SecondsHandColor",
         "defaultValue": "000000"
+      }
+    ]
+  },
+  {
+    "type": "submit",
+    "defaultValue": "Save"
+  },
+  {
+    "type": "section",
+    "items": [
+      {
+        "type": "heading",
+        "defaultValue": "Weather settings"
+      },
+      {
+        "type": "toggle",
+        "messageKey": "UseWeather",
+        "label": "Show Weather data.",
+        "defaultValue": false
+      },
+      {
+        "type": "select",
+        "messageKey": "WeatherProv",
+        "defaultValue": "ds",
+        "label": "Weather Provider",
+        "options": [
+          {
+            "label": "Open-Meteo",
+            "value": "ds"
+          },
+          {
+            "label": "OpenWeatherMap",
+            "value": "owm"
+          }
+        ]
+      },
+      {
+        "type": "input",
+        "messageKey": "Lat",
+        "defaultValue": "51.4769",
+        "label": "Manual Location - Latitude",
+        "attributes": {
+          "placeholder": "eg: 51.4769 (leave blank to use GPS)"
+        }
+      },
+      {
+        "type": "input",
+        "messageKey": "Long",
+        "defaultValue": "0.0005",
+        "label": "Manual Location - Longitude",
+        "description": "Leave both blank to use GPS location for sunrise & sunset times and weather. You can use <a href =https://www.google.com/maps>Google Maps</a> or <a href =https://www.openstreetmap.org/>OpenStreetMap</a> to find latitude & longitude.",
+        "attributes": {
+          "placeholder": "eg: -0.0005 (leave blank to use GPS)"
+        }
+      },
+      {
+        "type": "input",
+        "messageKey": "APIKEY_User",
+        "defaultValue": "",
+        "label": "OWM API Key",
+        "description": "Weather data uses Open-Meteo by default which does not require an API key.  If you prefer OpenWeatherMap, you can <a href =https://home.openweathermap.org/users/sign_up/>register for a free personal API key here</a>.",
+        "attributes": {
+          "placeholder": "Paste OpenWeatherMap API Key here, leave blank for Open-Meteo"
+        }
+      },
+      {
+        "type": "slider",
+        "messageKey": "UpSlider",
+        "defaultValue": 30,
+        "label": "Weather update frequency (minutes)",
+        "description": "More frequent requests will drain your phone battery more quickly",
+        "min": 15,
+        "max": 120,
+        "step": 15
+      },
+      {
+        "type": "toggle",
+        "messageKey": "WeatherUnit",
+        "label": "Temperature in °C (off) or °F (on)",
+        "defaultValue": false
+      },
+      {
+        "type": "toggle",
+        "messageKey": "UseUVI",
+        "label": "UV Index (off) or Moophase (on)",
+        "description": "Show either daily maximum & current UV index data, or moonphase",
+        "defaultValue": true
+      },
+      {
+        "type": "select",
+        "messageKey": "RainUnit",
+        "label": "Rain quantity unit to display",
+        "description": "Rain displays as amount of rain (in mm or inches) & chance of rain in next hour",
+        "defaultValue": "mm",
+        "options": [
+          {
+            "label": "millimeters",
+            "value": "mm"
+          },
+          {
+            "label": "inches",
+            "value": "in"
+          }
+        ]
+      },
+      {
+        "type": "select",
+        "messageKey": "WindUnit",
+        "label": "Wind speed unit to display",
+        "defaultValue": "kts",
+        "options": [
+          {
+            "label": "knots",
+            "value": "kts"
+          },
+          {
+            "label": "miles per hour",
+            "value": "mph"
+          },
+          {
+            "label": "metres per second",
+            "value": "ms"
+          },
+          {
+            "label": "kilometres per hour",
+            "value": "kph"
+          }
+        ]
       }
     ]
   },
