@@ -16,12 +16,29 @@
       },
       {
         "type": "toggle",
-        "messageKey": "HealthOff",
-        "label": "Switch off Steps",
+        "messageKey": "HealthOn",
+        "label": "Steps Visible",
         "defaultValue": false,
         "capabilities": [
           "HEALTH"
         ]
+      },
+      {
+        "type": "toggle",
+        "label": "Custom Text visible",
+        "description": "If Steps is ON, custom text will not display",
+        "messageKey": "EnableLogo",
+        "defaultValue": true
+      },
+      {
+        "type": "input",
+        "messageKey": "LogoText",
+        "defaultValue": "HYBRID",
+        "label": "Custom Text",
+        "description": "Maximum 6 characters",
+        "attributes": {
+          "placeholder": "HYBRID"
+        }
       },
       {
         "type": "toggle",
@@ -63,22 +80,6 @@
         "label": "Date visible",
         "messageKey": "EnableDate",
         "defaultValue": true
-      },
-      {
-        "type": "toggle",
-        "label": "Custom Text visible",
-        "messageKey": "EnableLogo",
-        "defaultValue": true
-      },
-      {
-        "type": "input",
-        "messageKey": "LogoText",
-        "defaultValue": "HYBRID",
-        "label": "Custom Text",
-        "description": "Maximum 6 characters",
-        "attributes": {
-          "placeholder": "HYBRID"
-        }
       },
       {
         "type": "toggle",
@@ -269,6 +270,27 @@
         "label": "Second Hand Colour",
         "messageKey": "SecondsHandColor",
         "defaultValue": "00AA55"
+      },
+      {
+       "type": "color",
+       "messageKey": "UVArcColor",
+       "defaultValue": "0xAAAAAA",
+       "label": "UV and Rain Arc background colour",
+       "allowGray":true
+      },
+      {
+       "type": "color",
+       "messageKey": "UVMaxColor",
+       "defaultValue": "0xFFFFFF",
+       "label": "UV Index Max and Rain Chance Today Bar",
+       "allowGray":true
+      },
+      {
+       "type": "color",
+       "messageKey": "UVNowColor",
+       "defaultValue": "0x555555",
+       "label": "UV Index Now and Rain Chance Next Hour Marks",
+       "allowGray":true
       }
     ]
   },
@@ -339,13 +361,6 @@
       },
       {
         "type": "color",
-        "label": "Quiet Time and Bluetooth Icon Colour",
-        "messageKey": "BTQTColor",
-        "defaultValue": "FFFFFF",
-        "allowGray": true
-      },
-      {
-        "type": "color",
         "label": "Tickmark Colour",
         "messageKey": "TickColor",
         "defaultValue": "000000"
@@ -379,6 +394,30 @@
         "label": "Second Hand Colour",
         "messageKey": "SecondsHandColor",
         "defaultValue": "000000"
+      },
+      {
+       "type": "color",
+       "messageKey": "UVArcColor",
+       "capabilities":["MICROPHONE"],
+       "defaultValue": "0xAAAAAA",
+       "label": "UV and Rain Arc background colour",
+       "allowGray":true
+      },
+      {
+       "type": "color",
+       "messageKey": "UVMaxColor",
+       "capabilities":["MICROPHONE"],
+       "defaultValue": "0xFFFFFF",
+       "label": "UV Index Max and Rain Chance Today Bar",
+       "allowGray":true
+      },
+      {
+       "type": "color",
+       "messageKey": "UVNowColor",
+       "capabilities":["MICROPHONE"],
+       "defaultValue": "0x555555",
+       "label": "UV Index Now and Rain Chance Next Hour Marks",
+       "allowGray":true
       }
     ]
   },
@@ -397,7 +436,7 @@
         "type": "toggle",
         "messageKey": "UseWeather",
         "label": "Show Weather data.",
-        "defaultValue": false
+        "defaultValue": true
       },
       {
         "type": "select",
@@ -461,15 +500,9 @@
         "defaultValue": false
       },
       {
-        "type": "toggle",
-        "messageKey": "UseUVI",
-        "label": "UV Index (off) or Moophase (on)",
-        "description": "Show either daily maximum & current UV index data, or moonphase",
-        "defaultValue": true
-      },
-      {
         "type": "select",
         "messageKey": "RainUnit",
+        "capabilities":["MICROPHONE"],
         "label": "Rain quantity unit to display",
         "description": "Rain displays as amount of rain (in mm or inches) & chance of rain in next hour",
         "defaultValue": "mm",
@@ -483,6 +516,35 @@
             "value": "in"
           }
         ]
+      },
+      {
+       "type": "select",
+          "messageKey": "PressureUnit",
+          "capabilities":["MICROPHONE"],
+          "label": "Barometric Pressure Unit",
+          "defaultValue": "mb",
+              "options": [
+            {
+              "label": "millibars (mb)",
+              "value": "mb"
+            },
+            {
+              "label": "inches of Mercury (Hg)",
+              "value": "hg"
+            },
+            {
+              "label": "millimeters of Mercury (mmHg)",
+              "value": "tor"
+            },
+            {
+              "label": "Pascals (P)",
+              "value": "ap"
+            },
+            {
+              "label": "standard atmospheric (atm)",
+              "value": "atm"
+            }
+            ]
       },
       {
         "type": "select",

@@ -1,7 +1,7 @@
 {
-  "name": "Hybrid",
+  "name": "HybridWeather",
   "author": "astosia",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "keywords": [
     "analog",
     "analogue",
@@ -15,8 +15,8 @@
     "pebble-fctx-compiler": "^1.2.2"
   },
   "pebble": {
-    "displayName": "Hybrid",
-    "uuid": "87b52118-6528-4614-9370-910d28eef1b6",
+    "displayName": "Hybrid Weather",
+    "uuid": "87b52118-6528-4614-9370-910d28eef1b7",
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": [
@@ -49,7 +49,6 @@
       "MinorTickColor",
       "TextColor3",
       "DateColor",
-      "BTQTColor",
       "ShadowOn",
       "HoursHandColor",
       "HoursHandBorderColor",
@@ -79,7 +78,51 @@
       "EnableLines",
       "EnableMinorTick",
       "EnableMajorTick",
-      "ForegroundShape"
+      "ForegroundShape",
+      "UseWeather",
+      "WeatherProv",
+      "Lat",
+      "Long",
+      "APIKEY_User",
+      "UpSlider",
+      "WeatherUnit",
+      "UseUVI",
+      "RainUnit",
+      "WindUnit",
+      "UVArcColor",
+      "UVMaxColor",
+      "UVValColor",
+      "UVNowColor",
+      "UVIndexMax",
+      "UVIndexDay",
+      "UVIndexNow",
+      "WeatherTemp",
+      "WeatherWind",
+      "WindIconNow",
+      "IconNow",
+      "WindFore",
+      "HourSunrise",
+      "HourSunset",
+      "WEATHER_SUNSET_KEY",
+      "WEATHER_SUNRISE_KEY",
+      "WEATHER_SUNSET_KEY_12H",
+      "WEATHER_SUNRISE_KEY_12H",
+      "IconFore",
+      "WindIconAve",
+      "TempFore",
+      "rain1h",
+      "pop1h",
+      "rainfore",
+      "popmax",
+      "popmin",
+      "barotrend",
+      "pressurenow",
+      "pressure1h",
+      "PressureUnit",
+      "MoonPhase",
+      "Weathertime",
+      "NameLocation",
+      "HealthOn"
     ],
     "resources": {
       "media": [
@@ -111,9 +154,7 @@
           "file": "data/DINPro-CondensedMedium.ffont",
           "targetPlatforms": [
               "gabbro",
-              "emery",
-              "chalk",
-              "basalt"
+              "emery"
             ],
           "type": "raw"
         },
@@ -124,9 +165,65 @@
           "targetPlatforms": [
               "aplite", 
               "flint",
-              "diorite"
+              "diorite",
+              "basalt"
             ],
           "type": "font"
+        },
+        {
+          "file": "fonts/DINPro-CondensedMedium.ttf",
+          "name": "FONT_DIN_CON_APLITE_46",
+          "characterRegex": "[0-9:.A-Z]",
+          "targetPlatforms": [
+              "chalk"
+            ],
+          "type": "font"
+        },
+        {
+            "file": "fonts/Weathericons.ttf",
+            "characterRegex": "[\uf051\uf052\uf077\uf07b\uf084\uf055\uf078\uf079\uf03e\uf03d\uf07b\uf00e\uf02c\uf010\uf02d\uf01e\uf005\uf025\uf01d\uf00b\uf02b\uf01c\uf01a\uf029\uf019\uf018\uf017\uf00a\uf02a\uf01b\uf076\uf0b2\uf0b4\uf0b5\uf006\uf026\uf003\uf04a\uf062\uf0b6\uf023\uf082\uf014\uf0c8\uf011\uf056\uf00d\uf02e\uf00c\uf081\uf002\uf086\uf041\uf013\uf073\uf072\uf050\uf015\uf044\uf043\uf048\uf087\uf058\uf057\uf04d\uf088\uf04b\uf095\uf096\uf097\uf098\uf099\uf09a\uf09b\uf09c\uf09d\uf09e\uf09f\uf0a0\uf0a1\uf0a2\uf0a3\uf0a4\uf0a5\uf0a6\uf0a7\uf0a8\uf0a9\uf0aa\uf0ab\uf0ac\uf0ad\uf0ae\uf0af\uf0b0]",
+            "name": "FONT_WEATHERICONS_20",
+            "targetPlatforms": [
+                "aplite",
+                "basalt",
+                "chalk",
+                "diorite",
+                "flint"
+            ],
+            "type": "font"
+        },
+        {
+            "file": "fonts/Weathericons.ttf",
+            "characterRegex": "[\uf051\uf052\uf077\uf07b\uf084\uf055\uf078\uf079\uf03e\uf03d\uf07b\uf00e\uf02c\uf010\uf02d\uf01e\uf005\uf025\uf01d\uf00b\uf02b\uf01c\uf01a\uf029\uf019\uf018\uf017\uf00a\uf02a\uf01b\uf076\uf0b2\uf0b4\uf0b5\uf006\uf026\uf003\uf04a\uf062\uf0b6\uf023\uf082\uf014\uf0c8\uf011\uf056\uf00d\uf02e\uf00c\uf081\uf002\uf086\uf041\uf013\uf073\uf072\uf050\uf015\uf044\uf043\uf048\uf087\uf058\uf057\uf04d\uf088\uf04b\uf095\uf096\uf097\uf098\uf099\uf09a\uf09b\uf09c\uf09d\uf09e\uf09f\uf0a0\uf0a1\uf0a2\uf0a3\uf0a4\uf0a5\uf0a6\uf0a7\uf0a8\uf0a9\uf0aa\uf0ab\uf0ac\uf0ad\uf0ae\uf0af\uf0b0]",
+            "name": "FONT_WEATHERICONS_31",
+            "targetPlatforms": [
+                "emery",
+                "gabbro"
+            ],
+            "type": "font"
+        },
+        {
+            "file": "fonts/Weathericons.ttf",
+            "characterRegex": "[\uf051\uf052\uf084\uf00d]",
+            "name": "FONT_WEATHERICONS_12",
+            "targetPlatforms": [
+                "emery",
+                "gabbro"
+            ],
+            "type": "font"
+        },
+         {
+            "file": "fonts/Weathericons.ttf",
+            "characterRegex": "[\uf051\uf052\uf084\uf00d]",
+            "name": "FONT_WEATHERICONS_10",
+            "targetPlatforms": [
+                "aplite",
+                "basalt",
+                "chalk",
+                "diorite",
+                "flint"
+            ],
+            "type": "font"
         }
       ]
     }
